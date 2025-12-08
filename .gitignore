@@ -1,0 +1,10 @@
+# Ignore compiled executables
+sender
+receiver
+door_sender
+door
+engine
+dashboard
+
+# Ignore compiled object files
+*.o
