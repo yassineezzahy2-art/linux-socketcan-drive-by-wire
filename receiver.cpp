@@ -16,23 +16,31 @@ int main(){
 
     struct can_frame frame;
     int byte;
-    while(true){
-        byte=read(s,&frame,sizeof(struct can_frame));
-        if (byte<0){
+while (true) {
+        byte = read(s, &frame, sizeof(struct can_frame));
+        if (byte < 0) {
             perror("Read error");
             break;
         }
-        if(frame.can_id==0x123){
-            uint8_t temp = (int)frame.data[2];
-            uint16_t rpm =  (int)frame.data[1];
-            rpm =rpm<<8;
-            rpm =rpm | (int)frame.data[0];
-        std::cout<<"temp is "<<(int)temp<<"  and rpm is now at "<<rpm<<std::endl;
+
+        if (frame.can_id == 0x123) {
+            uint8_t temp = frame.data[2];
+            uint16_t rpm = (frame.data[1] << 8) | frame.data[0];
+            
+            std::cout << "Dashboard: RPM=" << rpm 
+                      << " | Temp=" << (int)temp << "C" << std::endl;
         }
-    }
-    
-    
-    close(s);
+
+        else if (frame.can_id == 0x244) {
+            bool is_open = frame.data[0];
+            
+            if (is_open) {
+                std::cout << "Dashboard: [WARNING] DOOR OPEN!" << std::endl;
+            } else {
+                std::cout << "Dashboard: Door Closed." << std::endl;
+            }
+        }
+    }    close(s);
     return 0;
     
 

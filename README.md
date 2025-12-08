@@ -1,51 +1,64 @@
-# Linux SocketCAN Drive-by-Wire Simulator
+# Virtual Automotive ECU Simulation (Multi-Node SocketCAN)
 
 ## 🚗 Project Overview
-This project implements a **Drive-by-Wire (DBW) simulation** using the Linux SocketCAN stack. It mimics the behavior of a modern automotive throttle control system by establishing communication between two virtual ECUs.
+This project simulates a complete vehicle powertrain and body network using the **Linux SocketCAN** stack. It demonstrates a **Centralized Architecture** where a Dashboard ECU processes data from multiple independent nodes simultaneously using a raw CAN protocol.
 
-The system features an **Interactive Control Loop** where user input serves as the pedal sensor, dynamically adjusting engine parameters in real-time.
+The system features **ID Arbitration** and **Message Filtering** to handle conflicting traffic from:
+1.  **Powertrain Node (ID 0x123):** Broadcasts RPM/Temperature telemetry and handles Driver Throttle logic.
+2.  **Body Control Node (ID 0x244):** Broadcasts Door Status (Open/Closed) and handles Locking logic.
+3.  **Dashboard ECU (Receiver):** A central node that arbitrates between differing message IDs and visualizes the complete vehicle state in real-time.
 
-## ⚙️ System Architecture
-The project consists of two isolated nodes communicating over a virtual CAN bus (`vcan0`):
+## 🛠 Technical Highlights
+* **Multi-Process Simulation:** Running 3 separate process contexts to mimic independent hardware ECUs on a single Linux machine.
+* **CAN ID Arbitration:** The Receiver implements logic to distinguish Powertrain data (`0x123`) from Body data (`0x244`) on the same shared bus.
+* **Bitwise Unpacking:** Manual deserialization of raw frames.
+* **Safety Logic:** Software-defined guard rails (Integer Underflow Protection, Rev Limiter).
 
-### 1. Engine Control Unit (Sender)
-* **Role:** Acts as the main powertrain controller.
-* **Input Logic:** Captures keyboard interrupts to simulate pedal actuation:
-    * **'W' Key (Throttle):** Simulates acceleration (Increments RPM).
-    * **'B' Key (Brake):** Simulates braking (Decrements RPM).
-* **Protocol:** Packs the 16-bit RPM integer into a standard CAN Frame (ID `0x123`) using bitwise byte separation (High Byte / Low Byte).
+## ⚙️ Prerequisites
+* **OS:** Linux (Ubuntu/Debian)
+* **Kernel:** `vcan` module enabled.
+* **Tools:** `can-utils` (Optional, for debugging)
 
-### 2. Instrument Cluster (Receiver)
-* **Role:** Acts as the dashboard display unit.
-* **Logic:** Listens to the CAN network for ID `0x123`.
-* **Decoding:** Reconstructs the raw byte stream back into human-readable integer values.
-* **Safety Logic:** Monitors limits and triggers warnings if RPM exceeds safe thresholds (e.g., Redline Warning).
+## 💻 How to Run
 
-## 🛠️ Technology Stack
-* **Language:** C++ (Low-level memory management)
-* **API:** Linux SocketCAN (`<linux/can.h>`, `<sys/socket.h>`)
-* **Network Interface:** Virtual CAN (`vcan`)
-* **Concepts:** Bitwise operations, Structs, Network Byte Order, Real-time Simulation.
+### 1. Setup Virtual Network
+The project requires a virtual interface to simulate the physical bus.
+```bash
+sudo modprobe vcan
+sudo ip link add dev vcan0 type vcan
+sudo ip link set up vcan0
+2. Compile All ECUs
+Run these commands to build the three separate nodes.
 
-## 🚀 How to Run
+Bash
 
-1.  **Initialize Virtual CAN:**
-    ```bash
-    sudo modprobe vcan
-    sudo ip link add dev vcan0 type vcan
-    sudo ip link set up vcan0
-    ```
+g++ sender.cpp -o engine
+g++ door_sender.cpp -o door
+g++ receiver.cpp -o dashboard
+3. Execution (Requires 3 Terminal Windows)
+Open three separate terminals to simulate the distributed network.
 
-2.  **Compile the Nodes:**
-    ```bash
-    g++ sender.cpp -o engine_node
-    g++ receiver.cpp -o cluster_node
-    ```
+Terminal 1: Dashboard (The Listener)
 
-3.  **Execute:**
-    * Run `./cluster_node` in Terminal 1.
-    * Run `./engine_node` in Terminal 2.
-    * *Press 'W' to accelerate and 'B' to brake.*
+./receiver
+Displays the real-time status of the car.
 
----
-*Developed as part of an Embedded Automotive Engineering portfolio.*
+Terminal 2: Engine ECU
+
+./sender
+'a': Accelerate (+500 RPM)
+
+'b': Brake (-500 RPM)
+
+Terminal 3: Body ECU (Door)
+
+./door_sender
+'o': Open Door
+'c': Close Door
+
+📂 Project Structure
+sender.cpp: Engine Control Unit logic (RPM Physics).
+
+door_sender.cpp: Body Control Unit logic (Door State).
+
+receiver.cpp: Central Dashboard logic (Data Visualization).
