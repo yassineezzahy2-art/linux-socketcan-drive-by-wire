@@ -5,44 +5,44 @@
 #include <net/if.h>
 #include <linux/can.h>
 #include <linux/can/raw.h>
-#include <unistd.h> // Needed for sleep()
-
+#include <unistd.h>
 
 int setup_socket(const char *ifname);
 int main(){
+int s=setup_socket("vcan0");
+if (s<0) return 1;
 
-    int s= setup_socket("vcan0");
-    std::cout<<"dash is on"<<std::endl;
+struct can_frame frame;
 
-    struct can_frame frame;
-    int byte;
-while (true) {
-        byte = read(s, &frame, sizeof(struct can_frame));
-        if (byte < 0) {
-            perror("Read error");
-            break;
-        }
-
-        if (frame.can_id == 0x123) {
-            uint8_t temp = frame.data[2];
-            uint16_t rpm = (frame.data[1] << 8) | frame.data[0];
-            
-            std::cout << "Dashboard: RPM=" << rpm 
-                      << " | Temp=" << (int)temp << "C" << std::endl;
-        }
-
-        else if (frame.can_id == 0x244) {
-            bool is_open = frame.data[0];
-            
-            if (is_open) {
-                std::cout << "Dashboard: [WARNING] DOOR OPEN!" << std::endl;
-            } else {
-                std::cout << "Dashboard: Door Closed." << std::endl;
-            }
-        }
-    }    close(s);
-    return 0;
+int rpm =0;
+int temp =0;
+std::cout << "Waiting for data..." << std::endl;
+while(true){
+    int nb = read(s,&frame,sizeof(struct can_frame));
+    if (nb<0) break;
+    if (frame.can_id=0x123){
+        rpm= frame.data[1]<<8 | frame.data[0];
+        temp =frame.data[2];
     
+    }
+    std::cout << "\033[2J\033[H"; 
+        
+        std::cout << "=========================" << std::endl;
+        std::cout << "   VIRTUAL COCKPIT v2.0  " << std::endl;
+
+        std::cout << "=========================" << std::endl;
+std::cout << "RPM:  " << rpm << "\t";
+        int bars = rpm / 500;
+        std::cout << "[";
+        for(int i=0; i<10; i++) std::cout << (i < bars ? "#" : " ");
+        std::cout << "]" << std::endl;
+
+        std::cout << "TEMP: " << temp << " C" << std::endl;
+        std::cout << "-------------------------" << std::endl;
+}
+close(s);
+return 0;
+
 
 }
 int setup_socket(const char *ifname) {
