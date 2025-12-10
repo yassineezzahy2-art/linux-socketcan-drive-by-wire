@@ -1,57 +1,56 @@
-# Virtual Automotive ECU Simulation (Multi-Node SocketCAN)
+# Linux SocketCAN Drive-by-Wire Simulator (v2.0 Real-Time)
 
 ## 🚗 Project Overview
-This project simulates a complete vehicle powertrain and body network using the **Linux SocketCAN** stack. It demonstrates a **Centralized Architecture** where a Dashboard ECU processes data from multiple independent nodes simultaneously using a raw CAN protocol.
+This project simulates a **Real-Time Automotive Control System** using Linux SocketCAN. Unlike standard blocking simulations, this version implements **Asynchronous I/O** to achieve a 100Hz control loop, mimicking the cyclic execution of a real Electronic Control Unit (ECU).
 
-The system features **Real-Time Communication** and **Message Filtering** to handle conflicting traffic from:
-1.  **Powertrain Node (ID 0x123):** Broadcasts RPM/Temperature telemetry at **10Hz** and handles Driver Throttle logic.
-2.  **Body Control Node (ID 0x244):** Broadcasts Door Status (Open/Closed) and handles Locking logic.
-3.  **Dashboard ECU (Receiver):** A central node that renders a live, flicker-free instrument cluster using ANSI escape codes.
+The system consists of two nodes communicating via a virtual CAN bus:
+1.  **Engine & Body Controller (Sender):** Simulates engine physics (inertia/friction) and door state logic.
+2.  **Digital Instrument Cluster (Receiver):** Decodes CAN frames and renders a dynamic dashboard with warnings.
 
-## 🛠 Technical Highlights
-* **Real-Time Communication:** The Engine ECU broadcasts telemetry at **10Hz** (every 100ms) regardless of user input, simulating a real vehicle bus.
-* **Non-Blocking IO:** Implements `termios` and `fcntl` logic to capture keyboard input without pausing the main execution loop.
-* **Live Dashboard UI:** Uses ANSI Escape Codes (`\033[2J`) to render a flicker-free, updating instrument cluster in the terminal instead of a scrolling log.
-* **CAN ID Arbitration:** The Receiver implements logic to distinguish Powertrain data (`0x123`) from Body data (`0x244`) on the same shared bus.
-* **Safety Logic:** Software-defined guard rails (Integer Underflow Protection, Rev Limiter).
+## ⚡ Key Features (v2.0)
+* **Real-Time Control Loop:** Implemented `termios` and `fcntl` for non-blocking keyboard input. No "Enter" key required.
+* **Physics Simulation:** Engine RPM decays naturally due to simulated friction when throttle is released.
+* **State Machine Logic:** Implemented a **Debounced Toggle Switch** for the door control to prevent signal flickering.
+* **Bit-Packed CAN Frames:** Optimized bandwidth by packing RPM (16-bit), Temperature (8-bit), and Door Status (1-bit) into a single 4-byte payload.
+* **Dynamic Visualization:** Receiver uses ANSI escape codes for a flicker-free, refreshing UI.
 
-## ⚙️ Prerequisites
-* **OS:** Linux (Ubuntu/Debian)
-* **Kernel:** `vcan` module enabled.
-* **Tools:** `can-utils` (Optional, for debugging)
+## 🛠️ Tech Stack
+* **Language:** C++ (Low-level system programming)
+* **Protocol:** CAN (Controller Area Network) - Raw Sockets
+* **OS APIs:** `<sys/socket.h>`, `<linux/can.h>`, `<termios.h>` (Terminal Control)
+* **Architecture:** Cyclic Execution Model (10ms Loop)
 
-## 💻 How to Run
+## 🎮 Controls
+Run the Engine node and use the following keys:
+* **[W]** - Accelerate (Increase RPM)
+* **[S]** - Brake (Decrease RPM)
+* **[D]** - Toggle Door Open/Closed (includes debounce logic)
+* **[Q]** - Quit Simulation
 
-### 1. Setup Virtual Network
-The project requires a virtual interface to simulate the physical bus.
+## 🚀 How to Run
+
+### 1. Setup Virtual CAN
 ```bash
 sudo modprobe vcan
 sudo ip link add dev vcan0 type vcan
 sudo ip link set up vcan0
-### 2. Compile All ECUs
-Run these commands to build the three separate nodes.
+2. Compile
+Bash
+
+make
+# OR manually:
+g++ sender.cpp -o engine_node
+g++ receiver.cpp -o cluster_node
+3. Execute
+Open two terminal windows:
+
+Terminal 1 (Dashboard):
 
 Bash
 
-g++ sender.cpp -o sender
-g++ receiver.cpp -o receiver
-### 3. Execution (Requires 3 Terminal Windows)
-Open three separate terminals to simulate the distributed network.
-
-Terminal 1: Dashboard (The Listener)
+./cluster_node
+Terminal 2 (Engine):
 
 Bash
 
-./receiver
-Displays the real-time Live UI.
-
-Terminal 2: Engine ECU (Real-Time)
-
-Bash
-
-./sender
-'w': Rev Engine (Hold to accelerate)
-
-'s': Brake
-
-'q': Quit
+./engine_node
